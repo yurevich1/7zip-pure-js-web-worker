@@ -1,0 +1,203 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<script type="text/javascript" src="archive.lib.js"></script>
+
+<body>
+<table>
+<thead>
+</thead>
+<tbody id="dataField">
+
+</tbody>
+</table>
+<br/>
+<a href="https://blog.slava.online">How to: https://blog.slava.online </a>
+<br/>
+<a href="https://blog.slava.online/archive/~7z/">Online 7z p7zip archiver: https://blog.slava.online/archive/7z/ </a>
+<br/>
+<script>
+ console.log('ready!');
+ var resB = null;
+ var arrB = null;
+ var totalMemory = 268435456;
+ var fmt = "7z";
+ var dataField = document.getElementById('dataField')
+ , entityMapESCAPEHTML = {
+	'&': '&amp;',
+	'<': '&lt;',
+	'>': '&gt;',
+	'"': '&quot;',
+	"'": '&#39;',
+	'/': '&#x2F;'
+}
+, escapeHtml  = function(string) {
+	return String(string).replace(/[&<>"'\/]/g, function (s) {
+		return entityMapESCAPEHTML[s];
+	});
+},
+moreLog = function(txt) {
+	var t = txt.replace(/[\u0008]/g,'',"").trim();
+	var tr = document.createElement('tr');
+	var td = document.createElement('td');
+	td.innerHTML = escapeHtml(t);
+	tr.appendChild(td);
+	dataField.appendChild(tr);
+	/*
+	console.log(t);
+	*/
+},
+clearLog = function() {
+	dataField.innerHTML = '';
+}
+ var makeid = function(max_){
+	var text = "";
+	var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+	for( var i=0; i < max_; i++ )
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+	return text;
+}, str2ab = function(str) {//ascii string to Uint8Array
+	var arr=[];
+	for(var i=0,j=str.length;i<j;++i){
+		arr.push(str.charCodeAt(i));
+	}
+	return new Uint8Array(arr);
+	}, Uint8ToString = function (u8a){
+		if (u8a == null) return "null";
+		var CHUNK_SZ = 0x8000;
+		var c = [];
+		for (var i=0; i < u8a.length; i+=CHUNK_SZ) {
+			c.push(String.fromCharCode.apply(null, u8a.subarray(i, i+CHUNK_SZ)));
+		}
+		return c.join("");
+	};
+var worker7z,t0 = (new Date).getTime(), t1 = t0;
+
+var _7zDec = function(tmp){
+	console.log('_7zDec()');
+	if(typeof(worker7z) == "undefined") {
+		var fl = tmp[0];
+		worker7z = new Worker('worker.7z.wrapper.js');
+		worker7z.onerror = function(e) {
+				//	val(e + '');
+					console.log("worker7z error: ", e);
+					worker7z = undefined;
+				}
+		worker7z.onmessage = function(event) {//1
+			if (event.data.type === 1){
+				//val('1:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 2){
+				//val('2:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 3){
+				t1 = (new Date).getTime();
+				moreLog('ready!' + (t1 - t0));
+				console.log(event.data);
+				//console.log(t1 - t0);
+				worker7z.terminate();//this is very important!!! You have to release memory!
+				worker7z = undefined;
+				
+				console.log(event.data.results);
+			}
+		}
+		var fname = "/data" + fl.path;
+		fda = [];
+		fda.push(new DataStorage("/data",true,null));
+		fda.push(new DataStorage(fname,false, fl.data));
+		t0 = (new Date).getTime()
+		worker7z.postMessage({
+			id:1,
+			action:'doit',
+			arguments:["x",  fname ,"-o/result"],
+			FilesDataArray: fda,
+			totalMemory: totalMemory
+		});
+	}
+}
+
+var _7zCom = function(){
+	console.log('_7zCom()');
+	if(typeof(worker7z) == "undefined") {
+		worker7z = new Worker('worker.7z.wrapper.js');
+		worker7z.onerror = function(e) {
+				//	val(e + '');
+					console.log("worker7z error: ", e);
+					worker7z = undefined;
+				}
+		worker7z.onmessage = function(event) {//1
+			if (event.data.type === 1){
+				//val('1:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 2){
+				//val('2:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 3){
+				t1 = (new Date).getTime();
+				moreLog('ready!' + (t1 - t0));
+				console.log(event.data);
+				//console.log(t1 - t0);
+				worker7z.terminate();//this is very important!!! You have to release memory!
+				worker7z = undefined;
+				console.log(event.data.results);
+				_7zDec(event.data.results);
+			}
+		}
+		fda = [];
+		fda.push(new DataStorage("/data",true,null));
+		fda.push(new DataStorage("/data/file_dec.data",false, str2ab(makeid(1000))));
+		t0 = (new Date).getTime()
+		worker7z.postMessage({
+			id:1,
+			action:'doit',
+			arguments:["a", "-t" + fmt,"-mx9", "/result/files." + fmt,"/data/file_dec.data","-r"],
+			FilesDataArray: fda,
+			totalMemory: totalMemory
+		});
+	}
+}
+var _7zInfo = function(){
+	console.log('_7zList()');
+	if(typeof(worker7z) == "undefined") {
+		worker7z = new Worker('worker.7z.wrapper.js');
+		worker7z.onerror = function(e) {
+				//	val(e + '');
+					console.log("worker7z error: ", e);
+					worker7z = undefined;
+				}
+		worker7z.onmessage = function(event) {//1
+			if (event.data.type === 1){
+				//val('1:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 2){
+				//val('2:' + Math.round((event.data.cur - 1) / event.data.max_ * 100.) + '%');
+				moreLog(event.data.text);
+			} else if (event.data.type == 3){
+				t1 = (new Date).getTime();
+				moreLog('ready!' + (t1 - t0));
+				console.log(event.data);
+				//console.log(t1 - t0);
+				worker7z.terminate();//this is very important!!! You have to release memory!
+				worker7z = undefined;
+			}
+		}
+		fda = [];
+		fda.push(new DataStorage("/data",true,null));
+		fda.push(new DataStorage("/data/file_dec.data",false, str2ab(makeid(1000))));
+		t0 = (new Date).getTime()
+		worker7z.postMessage({
+			id:1,
+			action:'doit',
+			arguments:["i"],
+			totalMemory: totalMemory
+		});
+	}
+}
+_7zCom();
+//_7zInfo();
+	
+</script>
+</body>
+</html>
